@@ -38,6 +38,14 @@ class IP {
     public String getIP() {
         return ip;
     }
+    public byte[] getAddress() {
+        String[] octets = ip.split("\\.");
+        byte[] address = new byte[4];
+        for (int i = 0; i < 4; i++) {
+            address[i] = (byte) Integer.parseInt(octets[i]);
+        }
+        return address;
+    }
     public String getMAC() {
         return address.getMAC();
     }
