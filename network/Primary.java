@@ -1,21 +1,47 @@
 package network;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.*;
 
 public class Primary{
     public static void main(String[] args) {
-        MAC mac = new MAC("00:00:00:00:00:00");
-        IP ip = new IP("1.1.1.1", mac);
-        System.out.println(ip.toString());
-        String ipSubnet = "10.0.1.";
-        for (int i = 1; i < 255; i++) {
-            String ipAddr = ipSubnet + i;
-            System.out.println("Checking " + ipAddr);
-            if (isHostReachable(ipAddr)) {
-                System.out.println(ipAddr + " is reachable.");
-                String input = getMACFromIP(ipAddr);
-                System.out.println("MAC address: " + input);
+    long startTime = System.nanoTime();
+    ExecutorService executor = Executors.newFixedThreadPool(100);
+    List<Future<String>> futures = new ArrayList<>();
+
+    String ipSubnet = "10.0.1.";
+    for (int i = 1; i < 255; i++) {
+        String ipAddr = ipSubnet + i;
+        futures.add(executor.submit(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                if (isHostReachable(ipAddr)) {
+                    String mac = getMACFromIP(ipAddr);
+                    return ipAddr + " is reachable. MAC address: " + mac;
+                }
+                return null;
             }
+        }));
+    }
+
+    executor.shutdown();
+    for (Future<String> future : futures) {
+        try {
+            String result = future.get();
+            if (result != null) {
+                System.out.println(result);
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
         }
+    }
+    long endTime = System.nanoTime();
+    System.out.println("Time taken: " + (endTime - startTime) / 1000000000 + " sec");
     }
     public static boolean isHostReachable(String ipAddress) {
         try {
