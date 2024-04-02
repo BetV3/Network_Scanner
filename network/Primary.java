@@ -1,6 +1,7 @@
 package network;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.Callable;
@@ -14,12 +15,14 @@ public class Primary {
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
         int mask = -1;
+        HashMap <IP, List<Integer>> portMap = new HashMap<>();
         ExecutorService executor = Executors.newFixedThreadPool(100);
         List<Future<String>> futures = new ArrayList<>();
+        List<Future<Integer>> portFutures = new ArrayList<>();
         String ipAddr = Utilities.getAddress();
         System.out.println("Your IP address is: " + ipAddr);
         System.out.println("Enter network mask (default: 24): ");
-        if (in.hasNextInt()) {
+        if (in.nextLine() != "\n") {
             mask = in.nextInt();
             if (mask < 0 || mask > 32) {
                 System.out.println("Invalid mask. Using default mask: 24");
@@ -34,10 +37,10 @@ public class Primary {
         long ip = Utilities.ipToLong(new IP(ipAddr));
         long network = ip & (-1L << (32 - mask));
         long broadcast = network | ((1L << (32 - mask)) - 1);
-        System.out.println(ip);
-        System.out.println(network);
-        System.out.println(broadcast);
 
+
+
+        // Scanning for open IP addresses
         for (long i = network + 1; i < broadcast; i++) {
             String currIP = Utilities.longToIp(i);
             futures.add(executor.submit(new Callable<String>() {
@@ -45,14 +48,18 @@ public class Primary {
                 public String call() throws Exception {
                     if (isHostReachable(currIP)) {
                         String mac = getMACFromIP(currIP);
+                        IP ip = new IP(currIP, new MAC(mac));
+                        if (!portMap.containsKey(ip)) {
+                            List<Integer> ports = new ArrayList<>();
+                            portMap.put(ip, ports);
+                        }
                         return currIP + " is reachable. MAC address: " + mac;
                     }
                     return null;
                 }
             }));
-        }
-
-        executor.shutdown();
+        }      
+        // Waiting for the tasks to finish scanning before prompting for port scanning
         for (Future<String> future : futures) {
             try {
                 String result = future.get();
@@ -62,6 +69,73 @@ public class Primary {
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
+        }
+        // Prompting for port scanning
+        System.out.println("Would you like to port scan the network? (y/n)");
+        String response = in.next();
+        if (response.equals("y")) {
+            System.out.println("Enter port range (default: 1-1024): ");
+            int startPort = 1;
+            int endPort = 1024;
+            if (in.hasNextInt()) {
+                startPort = in.nextInt();
+                if (in.hasNextInt()) {
+                    endPort = in.nextInt();
+                }
+            }
+            for (IP curIP : portMap.keySet() ) {
+                final int start = startPort;
+                final int end = endPort;
+                futures.add(executor.submit(new Callable<String>() {
+                    @Override
+                    public String call() throws Exception {
+                        String result = curIP.getIP() + ":\n";
+                        for (int port = start; port <= end; port++) {
+                            final int curPort = port;
+                            portFutures.add(executor.submit(new Callable<Integer>() {
+                                @Override
+                                public Integer call() throws Exception {
+                                    if (Utilities.isPortOpen(curIP.getIP(), curPort)) {
+                                        portMap.get(curIP).add(curPort);
+                                        //System.out.println("Port " + curPort + " is open on " + curIP.getIP());
+                                        return curPort;
+                                    }
+                                    return null;
+                                }
+                            }));
+                        }
+                        return result;
+                    }
+                }));
+            }
+        }
+        else {
+            System.out.println("Exiting.");
+            System.exit(0);
+        }
+        // Waiting to see if port scanning is finished
+
+        // waiting to check if ip is finished being scanned
+        for (Future<String> future : futures) {
+            try {
+                String result = future.get();
+                if (result != null) {
+                    System.out.println(result);
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+        for (Future<Integer> future : portFutures) {
+            try {
+                Integer result = future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }         
+        executor.shutdown();
+        for (IP nIp : portMap.keySet()) {
+            System.out.println(nIp.getIP() + ": " + portMap.get(nIp));
         }
         long endTime = System.nanoTime();
         System.out.println("Time taken: " + (endTime - startTime) / 1000000000 + " sec");
