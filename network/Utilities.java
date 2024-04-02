@@ -2,11 +2,14 @@ package network;
 
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Collections;
 import java.util.Scanner;
+import java.net.Socket;
 
 public class Utilities {
     public static String getAddress() {
@@ -62,5 +65,15 @@ public class Utilities {
             ip >>= 8;
         }
         return sb.toString();
+    }
+    public static boolean isPortOpen(String ip, int port) {
+        try {
+            Socket socket = new Socket();
+            socket.connect(new InetSocketAddress(ip, port), 1000);
+            socket.close();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 }   
