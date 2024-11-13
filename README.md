@@ -35,13 +35,13 @@ A robust and efficient multithreaded network scanner built in Java. This tool sc
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/java-multithreaded-network-scanner.git
+   git clone https://github.com/BetV3/Network_Scanner.git
    ```
 
 2. **Navigate to the Project Directory:**
 
    ```bash
-   cd java-multithreaded-network-scanner
+   cd Network_Scanner
    ```
 
 3. **Compile the Java Files:**
